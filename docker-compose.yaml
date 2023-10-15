@@ -1,0 +1,119 @@
+version: '3.7'
+services:
+  mongodb:
+    image: mongo:latest
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - ${MONGO_PORT}:27017
+    volumes:
+      - ${MONGO_VOLUMES}:/data/db
+
+  mysql:
+    image: mysql:5.7.28
+    restart: always
+    ports:
+      - "${MYSQL_PORT}:3306"
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ${MYSQL_VOLUMES}:/var/lib/mysql
+    networks:
+      - default
+
+  postgres:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - '${POSTGRES_PORT}:5432'
+    volumes: 
+      - ${POSTGRES_VOLUMES}:/var/lib/postgresql/data
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ${REDIS_VOLUMES}:/root/redis
+      - ${REDIS_VOLUMES_CONF}:/usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DATABASES=${REDIS_DATABASES}
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
+    container_name: elasticsearch
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ${ELASTICSEARCH_VOLUMES}:/usr/share/elasticsearch/data
+    ports:
+      - ${ELASTICSEARCH_PORT_1}:9200
+      - ${ELASTICSEARCH_PORT_2}:9300
+  
+  influxdb:
+    image: influxdb
+    restart: always
+    ports:
+      - ${INFLUXDB_PORT}:8086
+    volumes:
+      - ${INFLUXDB_VOLUMES}:/var/lib/influxdb
+    environment:
+      - INFLUXDB_DB=${INFLUXDB_DB}
+      - INFLUXDB_ADMIN_USER=${INFLUXDB_ADMIN_USER}
+      - INFLUXDB_ADMIN_PASSWORD=${INFLUXDB_ADMIN_PASSWORD}
+
+  kibana:
+    container_name: kibana
+    image: docker.elastic.co/kibana/kibana:7.5.0
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:${ELASTICSEARCH_PORT_1}
+    ports:
+      - ${KIBANA_PORT}:5601
+    depends_on:
+      - elasticsearch
+
+  grafana:
+    image: grafana/grafana:7.5.7
+    ports:
+      - ${GRAFANA_PORT}:3000
+    restart: unless-stopped
+    volumes:
+      - ${GRAFANA_VOLUMES_DATASOURCES}:/etc/grafana/provisioning/datasources
+      - ${GRAFANA_VOLUMES_DATA}:/var/lib/grafana
+    environment:
+       GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel,grafana-piechart-panel"
+       GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+       GF_AUTH_ANONYMOUS_ENABLED: true
+       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+
+
+volumes:
+  $MONGO_VOLUMES:
+  db:
+  postgres:
+  ${REDIS_VOLUMES}:
+  ${ELASTICSEARCH_VOLUMES}:
+  ${GRAFANA_VOLUMES_DATA}:
+  ${INFLUXDB_VOLUMES}:
